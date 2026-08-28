@@ -12,8 +12,7 @@
   };
 
   outputs = { nixpkgs, flake-utils, flake-lib, ... }:
-    flake-lib.lib.mkLeafFlake {
-      inherit nixpkgs flake-utils;
+    let
       source = { type = "pypi"; pname = "packaging"; format = "sdist"; };
       package = {
         attr = "packaging";
@@ -21,5 +20,26 @@
         buildSystem = ps: [ ps.flit-core ];
       };
       pin = import ./pin.nix;
-    };
+    in
+    flake-utils.lib.eachDefaultSystem
+      (system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+          packaging = flake-lib.lib.mkPypiPackage { inherit pkgs source package pin; };
+        in
+        {
+          packages = {
+            inherit packaging;
+            default = packaging;
+            update-version = flake-lib.lib.mkUpdateVersion {
+              inherit pkgs source;
+              buildAttr = "packaging";
+            };
+            update-branches = flake-lib.lib.mkUpdateBranches {
+              inherit pkgs source;
+              pinSchema = "pypi";
+              minVersionComponents = 2;
+            };
+          };
+        });
 }
